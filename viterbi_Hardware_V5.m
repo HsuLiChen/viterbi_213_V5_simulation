@@ -1,23 +1,29 @@
 close all; clear; clc;
 
-msg_source = [1 0 1 1 0 1 1 0 1 0 1]; 
+% msg_source = [1 0 1 1 0 1 1 0];
 % dataIn = load('dataIn.asv', '-ascii');
 % msg_source = dataIn;
 % msg_source = randi([0 1], 1, 8190);  % 這裡示範 50 bits
-conv_code = conv_hardware_213(msg_source);
+dataIn = load('dataIn.asv', '-ascii');
+msg_source = dataIn(1:1000);
 
+D = 4;                       % 回溯深度設定
+
+conv_code = conv_hardware_213(msg_source);
+load("data_test.mat");
+
+
+% function [decoded_msg] = viterbi_hardware(conv_code,D)
 survivors = cell(4,1);       % 儲存各狀態的存活路徑
 new_survivors = cell(4,1);   % 暫存新生成的存活路徑
 path_metrics = [0;3;3;3];    % 各狀態的路徑度量值
 decoded_msg = [];            % 儲存逐步輸出的解碼結果
-D = 4;                       % 回溯深度設定
-count = 0;
 
 for step = 1:length(conv_code)/2
     idx = 2*step - 1;
     received_bits = conv_code(idx:idx+1);
-    new_metrics = [3,3,3,3];  
-    new_survivors = cell(4,1);
+    new_metrics = inf(4,1);    % 初始化新度量為無窮大
+    new_survivors = cell(4,1); % 重置暫存器
     
     for current_state = 0:3
         for input_bit = 0:1
@@ -32,45 +38,42 @@ for step = 1:length(conv_code)/2
             
             if candidate_metric < new_metrics(next_state+1)
                 new_metrics(next_state+1) = candidate_metric;
-                new_path = [survivors{current_state+1}, input_bit];
-                
-                if length(new_path) > D
-                    new_path = new_path(end-D+1:end);
-                end
-                new_survivors{next_state+1} = new_path;
+                new_survivors{next_state+1} = [survivors{current_state+1}, input_bit];
             end
         end
     end
     
     path_metrics = new_metrics;
     survivors = new_survivors;
-    
-    if step >= D
+
+    row_lengths = cellfun(@length, survivors);
+    if any(row_lengths >= D)
         [~, best_state] = min(path_metrics);
         best_path = survivors{best_state};
-        if length(best_path) >= D
-            decoded_bit = best_path(1);
-            decoded_msg = [decoded_msg, decoded_bit];
-
-            for state = 1:4
-                if length(survivors{state}) >= 1
-                    survivors{state} = survivors{state}(2:end);
-                end
-            end
-            
-        end
+        decoded_msg = [decoded_msg, best_path];
+        survivors = cell(4,1);
     end
 end
 
 [~, final_state] = min(path_metrics);
 remaining_bits = survivors{final_state};
 decoded_msg = [decoded_msg, remaining_bits];
+% 
+% end
+% 
+% disp('解碼結果:');
+% disp(decoded_msg);
 
-disp('解碼結果:');
-disp(decoded_msg);
+% 計算錯誤 bit 數量
+msg_source = transpose(msg_source);
+[bit_errors, ber] = biterr(msg_source, decoded_msg);
 
-% 驗證解碼正確性
-isequal(msg_source, decoded_msg)
+% 顯示結果
+fprintf('錯誤的 bit 數量: %d\n', bit_errors);
+fprintf('Bit Error Rate (BER): %.4f\n', ber);
+
+% % 驗證解碼正確性
+% isequal(msg_source, decoded_msg)
 
 %---------VITERBI_HARDWARE_TABLE-----------
 function nextState = viterbi_next_state(currentState,inptBits)
