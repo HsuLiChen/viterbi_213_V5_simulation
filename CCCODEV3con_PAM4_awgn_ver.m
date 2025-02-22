@@ -5,7 +5,6 @@ clc;
 % 定义常量
 modu_order = 4;      % 使用 PAM4 调制
 EbNo_all = 0:12; % SNR 范围
-numSymPerFrame = 50000; % 每帧符号数
 tbdepth = 16; 
 bits_per_symbol = log2(modu_order); % 每个符号的比特数
 
@@ -18,11 +17,9 @@ trellis_structs = {
     struct('trellis', poly2trellis([5, 4, 4], [23 35 0 0; 0 05 13 0; 0 0 05 13]), 'K', 3, 'N', 4) % (4,3,5)
 };
 
-% 生成固定的随机输入比特序列
-%dataIn = randi([0 1], 3*numSymPerFrame * bits_per_symbol, 1);
 %讀取固定檔案
 dataIn = load('dataIn.asv', '-ascii');
-% dataIn = randi([0 1], 1, 8191);
+
 for t = 1:length(trellis_structs)
     trellis = trellis_structs{t}.trellis;
     K = trellis_structs{t}.K;
